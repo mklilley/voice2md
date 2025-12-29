@@ -19,7 +19,13 @@ class StateStoreTests(unittest.TestCase):
                 sha = "abc123"
                 self.assertFalse(s.is_processed(sha))
 
-                s.mark_in_progress(sha, Path("/tmp/a.m4a"), force=True)
+                s.mark_in_progress(
+                    sha,
+                    Path("/tmp/a.m4a"),
+                    source_mtime_ns=123,
+                    source_size=456,
+                    force=True,
+                )
                 self.assertFalse(s.is_processed(sha))
                 self.assertFalse(s.allow_retry_in_progress(sha, ttl_seconds=3600))
 

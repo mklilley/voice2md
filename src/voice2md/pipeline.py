@@ -54,6 +54,23 @@ def process_audio_file(
         log.warning("File vanished before processing: %s", audio_path)
         return None
 
+    try:
+        st = audio_path.stat()
+        source_mtime_ns = int(st.st_mtime_ns)
+        source_size = int(st.st_size)
+    except FileNotFoundError:
+        log.warning("File vanished before processing: %s", audio_path)
+        return None
+
+    if (
+        not force
+        and state.is_source_processed(
+            audio_path, source_mtime_ns=source_mtime_ns, source_size=source_size
+        )
+    ):
+        log.info("Already processed (source path): %s", audio_path.name)
+        return None
+
     sha = sha256_file(audio_path)
     if state.is_processed(sha) and not force:
         log.info("Already processed (sha256): %s", audio_path.name)
@@ -63,7 +80,13 @@ def process_audio_file(
         log.info("In-progress elsewhere (skipping for now): %s", audio_path.name)
         return None
 
-    state.mark_in_progress(sha, audio_path, force=True)
+    state.mark_in_progress(
+        sha,
+        audio_path,
+        source_mtime_ns=source_mtime_ns,
+        source_size=source_size,
+        force=True,
+    )
     dumped_at = _infer_dump_time(audio_path)
 
     transcriber = build_transcriber(cfg.transcription)
@@ -85,23 +108,28 @@ def process_audio_file(
     created = ensure_topic_file(topic_file, topic_title=topic_title)
 
     archived_audio: Path | None = None
-    planned_archive = plan_archive_path(
-        source_path=audio_path,
-        archive_root=cfg.paths.archive_audio_dir,
-        subdir_format=cfg.processing.archive_subdir_format,
-        now=dumped_at,
-    )
-    source_audio_str = path_rel_to(cfg.paths.obsidian_vault_dir, planned_archive)
-    try:
-        archived_audio = ensure_archived_copy(source_path=audio_path, dest_path=planned_archive)
-    except Exception as e:
-        log.warning("Archive copy failed; continuing without archived link: %s (%s)", audio_path, e)
-        archived_audio = None
-        source_audio_str = audio_path.name
+    source_audio_str = path_rel_to(cfg.paths.inbox_audio_dir, audio_path)
+    if cfg.audio.archive_copy_enabled:
+        planned_archive = plan_archive_path(
+            source_path=audio_path,
+            archive_root=cfg.paths.archive_audio_dir,
+            subdir_format=cfg.processing.archive_subdir_format,
+            now=dumped_at,
+        )
+        try:
+            archived_audio = ensure_archived_copy(source_path=audio_path, dest_path=planned_archive)
+            source_audio_str = path_rel_to(cfg.paths.obsidian_vault_dir, archived_audio)
+        except Exception as e:
+            log.warning("Archive copy failed; continuing without archived link: %s (%s)", audio_path, e)
+            archived_audio = None
 
     if notebook_contains_sha256(topic_file, sha) and not force:
         log.info("Notebook already contains sha256 marker; skipping append: %s", audio_path.name)
-        if archived_audio is not None:
+        if (
+            cfg.audio.archive_copy_enabled
+            and cfg.audio.delete_original_after_archive
+            and archived_audio is not None
+        ):
             try:
                 finalize_archived_move(source_path=audio_path)
             except Exception:
@@ -111,6 +139,9 @@ def process_audio_file(
             archive_path=archived_audio,
             topic_file=topic_file,
             codex_status="skipped",
+            source_path=audio_path,
+            source_mtime_ns=source_mtime_ns,
+            source_size=source_size,
         )
         return ProcessOutcome(
             audio_path=audio_path,
@@ -164,7 +195,11 @@ def process_audio_file(
     else:
         codex_status = "disabled"
 
-    if archived_audio is not None:
+    if (
+        cfg.audio.archive_copy_enabled
+        and cfg.audio.delete_original_after_archive
+        and archived_audio is not None
+    ):
         try:
             finalize_archived_move(source_path=audio_path)
         except Exception:
@@ -175,6 +210,9 @@ def process_audio_file(
         archive_path=archived_audio,
         topic_file=topic_file,
         codex_status=codex_status,
+        source_path=audio_path,
+        source_mtime_ns=source_mtime_ns,
+        source_size=source_size,
     )
     return ProcessOutcome(
         audio_path=audio_path,

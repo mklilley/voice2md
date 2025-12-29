@@ -48,6 +48,7 @@ class Watcher:
         self._cfg = cfg
         self._stop = False
         self._state = StateStore(cfg.paths.state_db_path)
+        self._processed_sources = self._state.processed_source_snapshots()
         self._stable = StableFileTracker(stable_seconds=cfg.processing.stable_seconds)
 
     def close(self) -> None:
@@ -71,6 +72,26 @@ class Watcher:
         candidates = list_candidates(
             self._cfg.paths.inbox_audio_dir, self._cfg.processing.allowed_extensions
         )
+        if self._processed_sources:
+            filtered: list[Path] = []
+            for path in candidates:
+                key = str(path)
+                snap = self._processed_sources.get(key)
+                if snap is None:
+                    filtered.append(path)
+                    continue
+                try:
+                    st = path.stat()
+                except FileNotFoundError:
+                    continue
+                mtime_ns, size = snap
+                if mtime_ns is None or size is None:
+                    continue
+                if int(st.st_mtime_ns) == int(mtime_ns) and int(st.st_size) == int(size):
+                    continue
+                self._processed_sources.pop(key, None)
+                filtered.append(path)
+            candidates = filtered
         if not candidates:
             return
 
@@ -93,6 +114,11 @@ class Watcher:
                         outcome.topic_file,
                         outcome.codex_status,
                     )
+                    try:
+                        st = path.stat()
+                        self._processed_sources[str(path)] = (int(st.st_mtime_ns), int(st.st_size))
+                    except FileNotFoundError:
+                        pass
             except Exception:
                 log.exception("Failed processing: %s", path)
             finally:

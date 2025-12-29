@@ -7,6 +7,14 @@ paths:
   state_db_path: ~/.local/share/voice2md/state.sqlite3
   log_file: ~/Library/Logs/voice2md.log
 
+audio:
+  # If true, copy audio into `paths.archive_audio_dir` (e.g. inside your Obsidian vault).
+  # If false, leave audio files untouched in `paths.inbox_audio_dir`.
+  archive_copy_enabled: false
+  # If true, delete the original after a successful archive copy.
+  # (Ignored when archive_copy_enabled is false.)
+  delete_original_after_archive: false
+
 processing:
   allowed_extensions: [".m4a", ".mp3", ".wav"]
   stable_seconds: 10

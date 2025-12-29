@@ -13,6 +13,8 @@ class FileRecord:
     started_at: float | None
     processed_at: float | None
     source_path: str | None
+    source_mtime_ns: int | None
+    source_size: int | None
     archive_path: str | None
     topic_file: str | None
     error: str | None
@@ -40,6 +42,8 @@ class StateStore:
               started_at REAL,
               processed_at REAL,
               source_path TEXT,
+              source_mtime_ns INTEGER,
+              source_size INTEGER,
               archive_path TEXT,
               topic_file TEXT,
               codex_status TEXT,
@@ -47,7 +51,22 @@ class StateStore:
             )
             """
         )
+        self._ensure_columns(cur)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_processed_files_source ON processed_files (source_path)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_processed_files_source_stat ON processed_files (source_path, source_mtime_ns, source_size)"
+        )
         self._conn.commit()
+
+    def _ensure_columns(self, cur: sqlite3.Cursor) -> None:
+        cur.execute("PRAGMA table_info(processed_files)")
+        existing = {row[1] for row in cur.fetchall()}
+        if "source_mtime_ns" not in existing:
+            cur.execute("ALTER TABLE processed_files ADD COLUMN source_mtime_ns INTEGER")
+        if "source_size" not in existing:
+            cur.execute("ALTER TABLE processed_files ADD COLUMN source_size INTEGER")
 
     def get(self, sha256: str) -> FileRecord | None:
         cur = self._conn.cursor()
@@ -61,6 +80,8 @@ class StateStore:
             started_at=row["started_at"],
             processed_at=row["processed_at"],
             source_path=row["source_path"],
+            source_mtime_ns=row["source_mtime_ns"],
+            source_size=row["source_size"],
             archive_path=row["archive_path"],
             topic_file=row["topic_file"],
             codex_status=row["codex_status"],
@@ -71,30 +92,91 @@ class StateStore:
         rec = self.get(sha256)
         return rec is not None and rec.status == "processed"
 
-    def mark_in_progress(self, sha256: str, source_path: Path, *, force: bool = False) -> None:
+    def is_source_processed(
+        self,
+        source_path: Path,
+        *,
+        source_mtime_ns: int | None = None,
+        source_size: int | None = None,
+    ) -> bool:
+        cur = self._conn.cursor()
+        cur.execute(
+            """
+            SELECT status, source_mtime_ns, source_size
+            FROM processed_files
+            WHERE source_path = ? AND status = 'processed'
+            ORDER BY processed_at DESC
+            LIMIT 1
+            """,
+            (str(source_path),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return False
+        mtime_ns = row["source_mtime_ns"]
+        size = row["source_size"]
+        if mtime_ns is None or size is None:
+            return True
+        if source_mtime_ns is None or source_size is None:
+            return True
+        return int(mtime_ns) == int(source_mtime_ns) and int(size) == int(source_size)
+
+    def processed_source_snapshots(self) -> dict[str, tuple[int | None, int | None]]:
+        cur = self._conn.cursor()
+        cur.execute(
+            """
+            SELECT source_path, source_mtime_ns, source_size, processed_at
+            FROM processed_files
+            WHERE status='processed' AND source_path IS NOT NULL
+            """
+        )
+        latest: dict[str, tuple[float, int | None, int | None]] = {}
+        for row in cur.fetchall():
+            p = row["source_path"]
+            if not p:
+                continue
+            processed_at = float(row["processed_at"] or 0.0)
+            mtime_ns = row["source_mtime_ns"]
+            size = row["source_size"]
+            prev = latest.get(p)
+            if prev is None or processed_at >= prev[0]:
+                latest[p] = (processed_at, mtime_ns, size)
+        return {p: (mtime_ns, size) for p, (_t, mtime_ns, size) in latest.items()}
+
+    def mark_in_progress(
+        self,
+        sha256: str,
+        source_path: Path,
+        *,
+        source_mtime_ns: int | None,
+        source_size: int | None,
+        force: bool = False,
+    ) -> None:
         now = time.time()
         cur = self._conn.cursor()
         if force:
             cur.execute(
                 """
-                INSERT INTO processed_files (sha256, status, started_at, source_path)
-                VALUES (?, 'in_progress', ?, ?)
+                INSERT INTO processed_files (sha256, status, started_at, source_path, source_mtime_ns, source_size)
+                VALUES (?, 'in_progress', ?, ?, ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                   status='in_progress',
                   started_at=excluded.started_at,
                   source_path=excluded.source_path,
+                  source_mtime_ns=excluded.source_mtime_ns,
+                  source_size=excluded.source_size,
                   error=NULL
                 """,
-                (sha256, now, str(source_path)),
+                (sha256, now, str(source_path), source_mtime_ns, source_size),
             )
         else:
             cur.execute(
                 """
-                INSERT INTO processed_files (sha256, status, started_at, source_path)
-                VALUES (?, 'in_progress', ?, ?)
+                INSERT INTO processed_files (sha256, status, started_at, source_path, source_mtime_ns, source_size)
+                VALUES (?, 'in_progress', ?, ?, ?, ?)
                 ON CONFLICT(sha256) DO NOTHING
                 """,
-                (sha256, now, str(source_path)),
+                (sha256, now, str(source_path), source_mtime_ns, source_size),
             )
         self._conn.commit()
 
@@ -105,23 +187,38 @@ class StateStore:
         archive_path: Path | None,
         topic_file: Path | None,
         codex_status: str | None,
+        source_path: Path | None = None,
+        source_mtime_ns: int | None = None,
+        source_size: int | None = None,
     ) -> None:
         cur = self._conn.cursor()
         cur.execute(
             """
             INSERT INTO processed_files (
-              sha256, status, started_at, processed_at, source_path, archive_path, topic_file, codex_status, error
+              sha256, status, started_at, processed_at, source_path, source_mtime_ns, source_size, archive_path, topic_file, codex_status, error
             )
-            VALUES (?, 'processed', NULL, ?, NULL, ?, ?, ?, NULL)
+            VALUES (?, 'processed', NULL, ?, ?, ?, ?, ?, ?, ?, NULL)
             ON CONFLICT(sha256) DO UPDATE SET
               status='processed',
               processed_at=excluded.processed_at,
+              source_path=COALESCE(excluded.source_path, source_path),
+              source_mtime_ns=COALESCE(excluded.source_mtime_ns, source_mtime_ns),
+              source_size=COALESCE(excluded.source_size, source_size),
               archive_path=excluded.archive_path,
               topic_file=excluded.topic_file,
               codex_status=excluded.codex_status,
               error=NULL
             """,
-            (sha256, time.time(), str(archive_path) if archive_path else None, str(topic_file) if topic_file else None, codex_status),
+            (
+                sha256,
+                time.time(),
+                str(source_path) if source_path else None,
+                source_mtime_ns,
+                source_size,
+                str(archive_path) if archive_path else None,
+                str(topic_file) if topic_file else None,
+                codex_status,
+            ),
         )
         self._conn.commit()
 
@@ -160,4 +257,3 @@ class StateStore:
         out.setdefault("failed", 0)
         out.setdefault("in_progress", 0)
         return out
-

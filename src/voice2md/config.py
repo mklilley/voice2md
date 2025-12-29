@@ -152,6 +152,12 @@ class PathsConfig:
 
 
 @dataclass(frozen=True)
+class AudioConfig:
+    archive_copy_enabled: bool
+    delete_original_after_archive: bool
+
+
+@dataclass(frozen=True)
 class ProcessingConfig:
     allowed_extensions: tuple[str, ...]
     stable_seconds: int
@@ -206,6 +212,7 @@ class CodexConfig:
 @dataclass(frozen=True)
 class AppConfig:
     paths: PathsConfig
+    audio: AudioConfig
     processing: ProcessingConfig
     transcription: TranscriptionConfig
     routing: RoutingConfig
@@ -222,6 +229,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "state_db_path": "~/.local/share/voice2md/state.sqlite3",
         "log_file": "~/Library/Logs/voice2md.log",
     },
+    "audio": {"archive_copy_enabled": False, "delete_original_after_archive": False},
     "processing": {
         "allowed_extensions": [".m4a", ".mp3", ".wav"],
         "stable_seconds": 10,
@@ -278,6 +286,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     merged = _deep_merge(DEFAULT_CONFIG, data)
 
     paths = merged.get("paths", {})
+    audio = merged.get("audio", {})
     processing = merged.get("processing", {})
     transcription = merged.get("transcription", {})
     routing = merged.get("routing", {})
@@ -299,6 +308,10 @@ def load_config(path: Path | None = None) -> AppConfig:
             archive_audio_dir=_expand_path(str(paths["archive_audio_dir"])) or Path(),
             state_db_path=_expand_path(str(paths["state_db_path"])) or Path(),
             log_file=_expand_path(str(paths["log_file"])) or Path(),
+        ),
+        audio=AudioConfig(
+            archive_copy_enabled=bool(audio.get("archive_copy_enabled", False)),
+            delete_original_after_archive=bool(audio.get("delete_original_after_archive", False)),
         ),
         processing=ProcessingConfig(
             allowed_extensions=tuple(processing.get("allowed_extensions", [])),

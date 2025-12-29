@@ -11,7 +11,7 @@ Local-first pipeline to turn Android voice notes into **append-only Markdown top
 5. Appends:
    - `## Voice Dump — <timestamp>` + transcript
    - `## AI Commentary — <date>` + Codex output (or a placeholder if Codex fails)
-6. Archives the audio (configurable) and records the sha256 in a SQLite ledger (idempotent)
+6. Records processed state (sha256 ledger) so files are not double-processed; optionally copies audio into the vault
 
 Because the notebooks live inside your Obsidian vault (and Syncthing syncs the vault), everything appears back on your phone automatically.
 
@@ -93,7 +93,9 @@ Edit `~/.config/voice2md/config.yaml`:
 
 - `paths.inbox_audio_dir` → Syncthing incoming audio folder on Mac
 - `paths.obsidian_vault_dir` + `paths.topics_dir` → your Obsidian vault paths
-- `paths.archive_audio_dir` → where processed audio files are moved (inside the vault if you want phone access)
+- `audio.archive_copy_enabled` → if true, copy audio into `paths.archive_audio_dir` (e.g. inside the vault)
+- `audio.delete_original_after_archive` → if true, delete original after successful archive copy
+- `paths.archive_audio_dir` → where audio copies are written when archiving is enabled
 - `transcription.whisper_cpp.binary` + `transcription.whisper_cpp.model_path`
 - `codex.command` (default works if you have `codex` CLI installed and logged in)
 
@@ -172,7 +174,7 @@ The installer writes:
 4. Confirm it contains:
    - `## Voice Dump — ...` with transcript
    - `## AI Commentary — ...` with Codex output (or a placeholder)
-5. Confirm audio is moved under `paths.archive_audio_dir`
+5. If `audio.archive_copy_enabled: true`, confirm an audio copy exists under `paths.archive_audio_dir`
 6. Run `voice2md watch --once` again → no duplicate entries for the same audio (sha256 idempotency)
 7. Open Obsidian (Mac + phone) → the topic notebook appears via Syncthing
 
