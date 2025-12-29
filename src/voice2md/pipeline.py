@@ -76,10 +76,11 @@ def process_audio_file(
     decision = decide_route(
         audio_path=audio_path,
         transcript=transcript,
-        inbox_topic=cfg.routing.inbox_topic,
-        override_topic_file=cfg.routing.current_topic_override_file,
+        dumped_at=dumped_at,
+        infer_topic_max_words=cfg.routing.infer_topic_max_words,
+        infer_topic_max_chars=cfg.routing.infer_topic_max_chars,
     )
-    topic_title = sanitize_topic(decision.topic, fallback=cfg.routing.inbox_topic)
+    topic_title = sanitize_topic(decision.topic, fallback="Untitled")
     topic_file = topic_file_path(cfg.paths.topics_dir, topic_title)
     created = ensure_topic_file(topic_file, topic_title=topic_title)
 

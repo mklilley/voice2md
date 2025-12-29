@@ -187,8 +187,8 @@ class TranscriptionConfig:
 
 @dataclass(frozen=True)
 class RoutingConfig:
-    inbox_topic: str
-    current_topic_override_file: Path | None
+    infer_topic_max_words: int
+    infer_topic_max_chars: int
 
 
 @dataclass(frozen=True)
@@ -246,7 +246,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "beam_size": 5,
         },
     },
-    "routing": {"inbox_topic": "INBOX", "current_topic_override_file": None},
+    "routing": {"infer_topic_max_words": 6, "infer_topic_max_chars": 80},
     "codex": {
         "enabled": True,
         "command": ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"],
@@ -325,10 +325,8 @@ def load_config(path: Path | None = None) -> AppConfig:
             ),
         ),
         routing=RoutingConfig(
-            inbox_topic=str(routing.get("inbox_topic", "INBOX")),
-            current_topic_override_file=_expand_path(
-                routing.get("current_topic_override_file", None)
-            ),
+            infer_topic_max_words=int(routing.get("infer_topic_max_words", 6)),
+            infer_topic_max_chars=int(routing.get("infer_topic_max_chars", 80)),
         ),
         codex=CodexConfig(
             enabled=bool(codex.get("enabled", True)),
@@ -342,4 +340,3 @@ def load_config(path: Path | None = None) -> AppConfig:
         ),
         config_path=config_path,
     )
-

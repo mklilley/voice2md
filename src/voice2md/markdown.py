@@ -9,7 +9,7 @@ from pathlib import Path
 _SECTION_RE = re.compile(r"(?m)^## (Voice Dump|AI Commentary) — .*$")
 
 
-def sanitize_topic(topic: str, *, fallback: str = "INBOX") -> str:
+def sanitize_topic(topic: str, *, fallback: str = "Untitled") -> str:
     topic = topic.strip()
     topic = re.sub(r"[\\/]+", "-", topic)
     topic = re.sub(r"[:*?\"<>|]", "", topic)

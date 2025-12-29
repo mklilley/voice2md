@@ -10,32 +10,23 @@ from voice2md.router import decide_route
 
 
 class RouterTests(unittest.TestCase):
-    def test_transcript_tokens_win(self) -> None:
-        audio = Path("2025-12-29__Ignored__claims.m4a")
-        transcript = "hello\nTOPIC: Spin\nMODE: brainstorming\nbye"
-        decision = decide_route(audio_path=audio, transcript=transcript, inbox_topic="INBOX")
-        self.assertEqual(decision.topic, "Spin")
-        self.assertEqual(decision.mode, "brainstorming")
-        self.assertEqual(decision.topic_source, "transcript")
-        self.assertEqual(decision.mode_source, "transcript")
-
-    def test_filename_fallback(self) -> None:
-        audio = Path("2025-12-29__Spin__claims.m4a")
-        transcript = "no tokens here"
-        decision = decide_route(audio_path=audio, transcript=transcript, inbox_topic="INBOX")
-        self.assertEqual(decision.topic, "Spin")
+    def test_filename_wins_when_present(self) -> None:
+        audio = Path("2025-12-29 Spin notes.m4a")
+        transcript = "hello\nTOPIC: Something else\nThis proves the point.\nbye"
+        decision = decide_route(audio_path=audio, transcript=transcript)
+        self.assertEqual(decision.topic, "Spin notes")
         self.assertEqual(decision.mode, "claims")
         self.assertEqual(decision.topic_source, "filename")
-        self.assertEqual(decision.mode_source, "filename")
+        self.assertEqual(decision.mode_source, "inferred")
 
-    def test_inbox_fallback(self) -> None:
+    def test_infers_topic_when_filename_missing(self) -> None:
         audio = Path("random_recording.m4a")
-        transcript = "no tokens here"
-        decision = decide_route(audio_path=audio, transcript=transcript, inbox_topic="INBOX")
-        self.assertEqual(decision.topic, "INBOX")
-        self.assertEqual(decision.mode, "unspecified")
-        self.assertEqual(decision.topic_source, "fallback")
-        self.assertEqual(decision.mode_source, "fallback")
+        transcript = "This is about Quantum Spin measurement."
+        decision = decide_route(audio_path=audio, transcript=transcript)
+        self.assertEqual(decision.topic, "Quantum Spin measurement")
+        self.assertEqual(decision.mode, "brainstorming")
+        self.assertEqual(decision.topic_source, "inferred")
+        self.assertEqual(decision.mode_source, "inferred")
 
 
 if __name__ == "__main__":

@@ -30,8 +30,8 @@ transcription:
     beam_size: 5
 
 routing:
-  inbox_topic: INBOX
-  current_topic_override_file: ~/VoiceInbox/CURRENT_TOPIC.txt
+  infer_topic_max_words: 6
+  infer_topic_max_chars: 80
 
 codex:
   enabled: true

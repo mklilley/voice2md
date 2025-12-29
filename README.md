@@ -7,7 +7,7 @@ Local-first pipeline to turn Android voice notes into **append-only Markdown top
 1. Watches an incoming audio folder (e.g. a Syncthing target like `~/VoiceInbox/`)
 2. Waits for files to become “stable” (size/mtime unchanged for `stable_seconds`)
 3. Transcribes locally (default: `whisper.cpp`)
-4. Routes to a topic notebook (tokens → override file → filename → `INBOX`)
+4. Routes to a topic notebook (filename topic → inferred topic)
 5. Appends:
    - `## Voice Dump — <timestamp>` + transcript
    - `## AI Commentary — <date>` + Codex output (or a placeholder if Codex fails)
@@ -81,7 +81,7 @@ voice2md watch --config ~/.config/voice2md/config.yaml
 Process a single file:
 
 ```bash
-voice2md process ~/VoiceInbox/2025-12-29__Spin__claims.m4a
+voice2md process "~/VoiceInbox/2025-12-29 Spin.m4a"
 ```
 
 Rerun Codex for the latest voice dump in a topic file:
@@ -100,15 +100,13 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 
 Priority order:
 
-1. Transcript tokens:
-   - `TOPIC: Spin` → `Topics/Spin.md`
-   - `MODE: claims` / `MODE: brainstorming` etc
-2. Optional override file:
-   - `routing.current_topic_override_file` (e.g. `~/VoiceInbox/CURRENT_TOPIC.txt`)
-3. Filename hints:
-   - `YYYY-MM-DD__Topic__MODE.ext`
-4. Fallback:
-   - `Topics/INBOX.md` and `Mode: unspecified`
+1. Filename topic (preferred):
+   - Find a `YYYY-MM-DD` anywhere in the filename (excluding extension)
+   - Everything after that date becomes the topic (leading spaces/dashes are trimmed)
+   - Example: `2025-12-29 Spin notes.m4a` → `Topics/Spin notes.md`
+2. If the filename has no topic, infer a topic from the transcript content (keywords / “this is about …” style phrases)
+
+Mode is inferred from the transcript content (roughly: `claims` vs `model-forming` vs `brainstorming`, plus `prep for sharing`).
 
 ## launchd (set-and-forget)
 
