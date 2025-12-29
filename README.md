@@ -4,7 +4,7 @@ Local-first pipeline to turn Android voice notes into **append-only Markdown top
 
 ## What it does
 
-1. Watches an incoming audio folder (e.g. a Syncthing target like `~/VoiceInbox/`)
+1. Watches an incoming audio folder (e.g. a Syncthing target like `~/VoiceInbox/`) for `.m4a/.mp3/.wav/.aac`
 2. Waits for files to become “stable” (size/mtime unchanged for `stable_seconds`)
 3. Transcribes locally (default: `whisper.cpp`)
 4. Routes to a topic notebook (filename topic → inferred topic)

@@ -231,7 +231,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "audio": {"archive_copy_enabled": False, "delete_original_after_archive": False},
     "processing": {
-        "allowed_extensions": [".m4a", ".mp3", ".wav"],
+        "allowed_extensions": [".m4a", ".mp3", ".wav", ".aac"],
         "stable_seconds": 10,
         "poll_interval_seconds": 5,
         "in_progress_ttl_seconds": 3600,
