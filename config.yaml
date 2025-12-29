@@ -1,0 +1,46 @@
+# voice2md config (YAML subset; see README.md)
+paths:
+  inbox_audio_dir: ~/VoiceInbox
+  obsidian_vault_dir: ~/ObsidianVault
+  topics_dir: ~/ObsidianVault/Topics
+  archive_audio_dir: ~/ObsidianVault/_attachments/audio
+  state_db_path: ~/.local/share/voice2md/state.sqlite3
+  log_file: ~/Library/Logs/voice2md.log
+
+processing:
+  allowed_extensions: [".m4a", ".mp3", ".wav"]
+  stable_seconds: 10
+  poll_interval_seconds: 5
+  in_progress_ttl_seconds: 3600
+  archive_subdir_format: "%Y/%m"
+
+transcription:
+  engine: whisper_cpp  # whisper_cpp | faster_whisper
+  whisper_cpp:
+    binary: whisper-cli
+    model_path: ~/Models/whisper.cpp/ggml-medium.bin
+    language: auto
+    threads: 6
+    extra_args: []
+  faster_whisper:
+    model: medium
+    device: auto
+    compute_type: int8
+    language: auto
+    beam_size: 5
+
+routing:
+  inbox_topic: INBOX
+  current_topic_override_file: ~/VoiceInbox/CURRENT_TOPIC.txt
+
+codex:
+  enabled: true
+  # Command used to generate commentary. `-` means "read prompt from stdin".
+  # Example: ["codex", "--color", "never", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]
+  command: ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]
+  model: ""
+  timeout_seconds: 180
+  prompt_file: prompts/referee_prompt.md
+  context_voice_dumps: 3
+  context_ai_commentaries: 1
+  context_max_chars: 20000
