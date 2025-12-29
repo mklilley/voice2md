@@ -41,7 +41,44 @@ pip install -e .
 brew install whisper-cpp ffmpeg
 ```
 
-Download a `whisper.cpp` ggml model file (e.g. `ggml-medium.bin`) and set its path in your config.
+### 2b) Download a `whisper.cpp` model file (ggml)
+
+Homebrew installs the `whisper.cpp` binaries, but **not** the model weights. You need to download one model file (once) and point `config.yaml` at it.
+
+Pick a model (bigger = slower, usually more accurate):
+- `ggml-small.en.bin` (fast, good for quick testing; English-only)
+- `ggml-medium.bin` (slower, better; multilingual)
+
+Option A (recommended): download directly into the path this repo’s sample config already uses:
+
+```bash
+mkdir -p ~/Models/whisper.cpp
+cd ~/Models/whisper.cpp
+
+# Multilingual:
+curl -L -o ggml-medium.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin
+
+# OR English-only (smaller/faster):
+curl -L -o ggml-medium.en.bin \
+   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin
+```
+
+Then ensure your config points to the file you downloaded, e.g.:
+
+```yaml
+transcription:
+  engine: whisper_cpp
+  whisper_cpp:
+    binary: whisper-cli
+    model_path: ~/Models/whisper.cpp/ggml-medium.bin
+```
+
+Quick sanity check (optional):
+
+```bash
+whisper-cli -m ~/Models/whisper.cpp/ggml-medium.bin -f /path/to/audio.wav
+```
 
 ### 3) Configure paths
 
