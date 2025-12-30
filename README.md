@@ -93,6 +93,7 @@ Edit `~/.config/voice2md/config.yaml`:
 
 - `paths.inbox_audio_dir` → Syncthing incoming audio folder on Mac
 - `paths.obsidian_vault_dir` + `paths.topics_dir` → your Obsidian vault paths
+- `state.backend` + `state.path` → where voice2md stores its “already processed” ledger (default: JSON)
 - `audio.archive_copy_enabled` → if true, copy audio into `paths.archive_audio_dir` (e.g. inside the vault)
 - `audio.delete_original_after_archive` → if true, delete original after successful archive copy
 - `paths.archive_audio_dir` → where audio copies are written when archiving is enabled
@@ -188,6 +189,6 @@ The installer writes:
 ## Design notes (why it’s built this way)
 
 - **Polling watcher** instead of filesystem events: Syncthing writes/renames/tempfiles; stability windows are simpler and restart-safe.
-- **SQLite ledger keyed by sha256:** avoids double-processing even if files are renamed or re-synced.
+- **Processed-state ledger keyed by sha256 (default: JSON, optional: SQLite):** avoids double-processing even if files are renamed or re-synced.
 - **Append-only Markdown:** no rewriting, safe to sync, easy to browse/link in Obsidian.
 - **Codex integration via `codex exec --output-last-message`:** captures clean Markdown output while allowing Codex to fail gracefully.

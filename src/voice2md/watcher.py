@@ -7,7 +7,7 @@ from pathlib import Path
 
 from voice2md.config import AppConfig
 from voice2md.pipeline import process_audio_file
-from voice2md.state import StateStore
+from voice2md.state import StateStore, open_state_store
 from voice2md.stable import StableFileTracker
 
 log = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class Watcher:
     def __init__(self, cfg: AppConfig) -> None:
         self._cfg = cfg
         self._stop = False
-        self._state = StateStore(cfg.paths.state_db_path)
+        self._state: StateStore = open_state_store(path=cfg.state.path, backend=cfg.state.backend)
         self._processed_sources = self._state.processed_source_snapshots()
         self._stable = StableFileTracker(stable_seconds=cfg.processing.stable_seconds)
 

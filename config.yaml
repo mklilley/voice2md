@@ -4,8 +4,13 @@ paths:
   obsidian_vault_dir: ~/ObsidianVault
   topics_dir: ~/ObsidianVault/Topics
   archive_audio_dir: ~/ObsidianVault/_attachments/audio
-  state_db_path: ~/.local/share/voice2md/state.sqlite3
   log_file: ~/Library/Logs/voice2md.log
+
+state:
+  # Where voice2md records what has already been processed (so it won’t re-run on files left in the inbox).
+  # Options: json | sqlite
+  backend: json
+  path: ~/.config/voice2md/state.json
 
 audio:
   # If true, copy audio into `paths.archive_audio_dir` (e.g. inside your Obsidian vault).

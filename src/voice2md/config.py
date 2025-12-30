@@ -147,7 +147,6 @@ class PathsConfig:
     obsidian_vault_dir: Path
     topics_dir: Path
     archive_audio_dir: Path
-    state_db_path: Path
     log_file: Path
 
 
@@ -155,6 +154,12 @@ class PathsConfig:
 class AudioConfig:
     archive_copy_enabled: bool
     delete_original_after_archive: bool
+
+
+@dataclass(frozen=True)
+class StateConfig:
+    backend: str
+    path: Path
 
 
 @dataclass(frozen=True)
@@ -212,6 +217,7 @@ class CodexConfig:
 @dataclass(frozen=True)
 class AppConfig:
     paths: PathsConfig
+    state: StateConfig
     audio: AudioConfig
     processing: ProcessingConfig
     transcription: TranscriptionConfig
@@ -226,9 +232,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "obsidian_vault_dir": "~/ObsidianVault",
         "topics_dir": "~/ObsidianVault/Topics",
         "archive_audio_dir": "~/ObsidianVault/_attachments/audio",
-        "state_db_path": "~/.local/share/voice2md/state.sqlite3",
         "log_file": "~/Library/Logs/voice2md.log",
     },
+    "state": {"backend": "json", "path": "~/.config/voice2md/state.json"},
     "audio": {"archive_copy_enabled": False, "delete_original_after_archive": False},
     "processing": {
         "allowed_extensions": [".m4a", ".mp3", ".wav", ".aac"],
@@ -285,7 +291,11 @@ def load_config(path: Path | None = None) -> AppConfig:
     data = _load_yaml_subset(config_path)
     merged = _deep_merge(DEFAULT_CONFIG, data)
 
+    user_paths = data.get("paths", {}) if isinstance(data.get("paths", {}), dict) else {}
+    user_state = data.get("state") if isinstance(data.get("state"), dict) else None
+
     paths = merged.get("paths", {})
+    state = merged.get("state", {})
     audio = merged.get("audio", {})
     processing = merged.get("processing", {})
     transcription = merged.get("transcription", {})
@@ -300,14 +310,26 @@ def load_config(path: Path | None = None) -> AppConfig:
     whisper_cpp = transcription.get("whisper_cpp", {})
     faster_whisper = transcription.get("faster_whisper", {})
 
+    # Backward compatibility: older configs used `paths.state_db_path` for sqlite, and had no `state:` section.
+    legacy_state_db_path = user_paths.get("state_db_path")
+    if user_state is None and legacy_state_db_path:
+        state_backend = "sqlite"
+        state_path_raw = legacy_state_db_path
+    else:
+        state_backend = str(state.get("backend", DEFAULT_CONFIG["state"]["backend"])).strip().lower()
+        state_path_raw = state.get("path", DEFAULT_CONFIG["state"]["path"])
+
     return AppConfig(
         paths=PathsConfig(
             inbox_audio_dir=_expand_path(str(paths["inbox_audio_dir"])) or Path(),
             obsidian_vault_dir=_expand_path(str(paths["obsidian_vault_dir"])) or Path(),
             topics_dir=_expand_path(str(paths["topics_dir"])) or Path(),
             archive_audio_dir=_expand_path(str(paths["archive_audio_dir"])) or Path(),
-            state_db_path=_expand_path(str(paths["state_db_path"])) or Path(),
             log_file=_expand_path(str(paths["log_file"])) or Path(),
+        ),
+        state=StateConfig(
+            backend=state_backend,
+            path=_expand_path(str(state_path_raw)) or Path(),
         ),
         audio=AudioConfig(
             archive_copy_enabled=bool(audio.get("archive_copy_enabled", False)),

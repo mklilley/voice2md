@@ -14,7 +14,7 @@ from voice2md.markdown import (
     extract_latest_sections,
 )
 from voice2md.pipeline import process_audio_file
-from voice2md.state import StateStore
+from voice2md.state import open_state_store
 from voice2md.watcher import Watcher
 
 log = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def cmd_watch(args: argparse.Namespace) -> int:
 
 def cmd_process(args: argparse.Namespace) -> int:
     cfg = _load(args.config, verbose=args.verbose)
-    state = StateStore(cfg.paths.state_db_path)
+    state = open_state_store(path=cfg.state.path, backend=cfg.state.backend)
     try:
         outcome = process_audio_file(cfg, audio_path=Path(args.file), state=state, force=args.force)
         if outcome:
@@ -53,7 +53,7 @@ def cmd_process(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     cfg = _load(args.config, verbose=args.verbose)
-    state = StateStore(cfg.paths.state_db_path)
+    state = open_state_store(path=cfg.state.path, backend=cfg.state.backend)
     try:
         stats = state.stats()
         print(f"processed={stats['processed']} failed={stats['failed']} in_progress={stats['in_progress']}")
