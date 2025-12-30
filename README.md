@@ -99,6 +99,7 @@ Edit `~/.config/voice2md/config.yaml`:
 - `paths.archive_audio_dir` → where audio copies are written when archiving is enabled
 - `transcription.whisper_cpp.binary` + `transcription.whisper_cpp.model_path`
 - `codex.command` (default works if you have `codex` CLI installed and logged in)
+- `codex.model_reasoning_effort` (optional; forwarded to Codex as `-c model_reasoning_effort="..."`)
 
 Notes:
 - Config is standard YAML (parsed via `PyYAML`).
@@ -183,6 +184,7 @@ The installer writes:
 - **Stuck on partial sync:** raise `processing.stable_seconds` (Syncthing may update file size/mtime while uploading).
 - **whisper.cpp fails:** confirm the model file exists and the binary name matches your install. You can change `transcription.whisper_cpp.binary` to an absolute path.
 - **Codex fails/offline:** the transcript is still appended; the notebook will include a rerun command. Try `voice2md rerun-codex <topicfile>`.
+- **Codex timeouts:** increase `codex.timeout_seconds` in your config (large dumps + the referee prompt can take several minutes).
 
 ## Design notes (why it’s built this way)
 

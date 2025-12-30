@@ -52,7 +52,9 @@ codex:
   # Example: ["codex", "--color", "never", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]
   command: ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]
   model: ""
-  timeout_seconds: 180
+  # Optional: pass through to Codex as `-c model_reasoning_effort="..."` (e.g. low|medium|high|xhigh).
+  model_reasoning_effort: ""
+  timeout_seconds: 600
   prompt_file: prompts/referee_prompt.md
   context_voice_dumps: 3
   context_ai_commentaries: 1

@@ -115,6 +115,7 @@ class CodexConfig:
     enabled: bool
     command: tuple[str, ...]
     model: str
+    model_reasoning_effort: str
     timeout_seconds: int
     prompt_file: Path
     context_voice_dumps: int
@@ -173,7 +174,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": True,
         "command": ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"],
         "model": "",
-        "timeout_seconds": 180,
+        "model_reasoning_effort": "",
+        "timeout_seconds": 600,
         "prompt_file": "prompts/referee_prompt.md",
         "context_voice_dumps": 3,
         "context_ai_commentaries": 1,
@@ -275,6 +277,7 @@ def load_config(path: Path | None = None) -> AppConfig:
             enabled=bool(codex.get("enabled", True)),
             command=tuple(codex.get("command", [])),
             model=str(codex.get("model", "")),
+            model_reasoning_effort=str(codex.get("model_reasoning_effort", "")),
             timeout_seconds=int(codex.get("timeout_seconds", 180)),
             prompt_file=prompt_path,
             context_voice_dumps=int(codex.get("context_voice_dumps", 3)),

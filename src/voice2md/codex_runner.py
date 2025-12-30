@@ -85,6 +85,25 @@ def _inject_model(cmd: list[str], model: str) -> list[str]:
     return cmd[:idx] + ["--model", model] + cmd[idx:]
 
 
+def _inject_reasoning_effort(cmd: list[str], reasoning_effort: str) -> list[str]:
+    reasoning_effort = reasoning_effort.strip()
+    if not reasoning_effort:
+        return cmd
+
+    # If the user already supplied a config override for this, respect it.
+    for part in cmd:
+        if "model_reasoning_effort" in part:
+            return cmd
+
+    try:
+        idx = cmd.index("-")
+    except ValueError:
+        idx = len(cmd)
+
+    # Codex CLI parses the value as TOML, so we must quote the string.
+    return cmd[:idx] + ["-c", f'model_reasoning_effort="{reasoning_effort}"'] + cmd[idx:]
+
+
 def run_codex(cfg: CodexConfig, *, stdin_prompt: str) -> CodexResult:
     if not cfg.enabled:
         raise CodexError("Codex is disabled in config")
@@ -99,6 +118,7 @@ def run_codex(cfg: CodexConfig, *, stdin_prompt: str) -> CodexResult:
         out_path = Path(tmp) / "codex_last_message.txt"
         cmd = _ensure_output_last_message(base_cmd, out_path)
         cmd = _inject_model(cmd, cfg.model)
+        cmd = _inject_reasoning_effort(cmd, cfg.model_reasoning_effort)
 
         log.info("Running Codex: %s", " ".join(cmd))
         try:
@@ -114,7 +134,18 @@ def run_codex(cfg: CodexConfig, *, stdin_prompt: str) -> CodexResult:
         except FileNotFoundError as e:
             raise CodexError(f"Codex command not found: {cmd[0]}") from e
         except subprocess.TimeoutExpired as e:
-            raise CodexError(f"Codex timed out after {cfg.timeout_seconds}s") from e
+            if out_path.exists():
+                text = out_path.read_text(encoding="utf-8").strip()
+                if text:
+                    log.warning(
+                        "Codex timed out after %ss but produced an output file; using partial output",
+                        cfg.timeout_seconds,
+                    )
+                    return CodexResult(markdown=text)
+            raise CodexError(
+                f"Codex timed out after {cfg.timeout_seconds}s "
+                f"(increase codex.timeout_seconds in config.yaml)"
+            ) from e
         except subprocess.CalledProcessError as e:
             stderr = (e.stderr or "").strip()
             stdout = (e.stdout or "").strip()
