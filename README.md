@@ -146,8 +146,6 @@ Priority order:
    - Example: `2025-12-29 Spin notes.m4a` → `Topics/Spin notes.md`
 2. If the filename has no topic, infer a topic from the transcript content (keywords / “this is about …” style phrases)
 
-Mode is inferred from the transcript content (roughly: `claims` vs `model-forming` vs `brainstorming`, plus `prep for sharing`).
-
 ## launchd (set-and-forget)
 
 Install:
