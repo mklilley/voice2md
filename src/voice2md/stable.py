@@ -53,6 +53,8 @@ class StableFileTracker:
             prior = self._seen.get(path)
             if prior is None:
                 self._seen[path] = (snap, now)
+                if self._stable_seconds <= 0:
+                    stable.append(path)
                 continue
 
             prior_snap, last_change = prior
@@ -67,4 +69,3 @@ class StableFileTracker:
 
     def forget(self, path: Path) -> None:
         self._seen.pop(path, None)
-

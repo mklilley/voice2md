@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -19,6 +20,52 @@ from voice2md.watcher import Watcher
 
 log = logging.getLogger(__name__)
 
+_GLOBAL_FLAGS = {"-v", "--verbose"}
+
+
+def _normalize_argv(argv: list[str]) -> list[str]:
+    """
+    Allow global flags (like --config / -v) to appear *after* the subcommand.
+
+    Argparse only treats options as "global" if they appear before the subcommand:
+      voice2md --config ~/.config/voice2md/config.yaml watch --once
+
+    Users commonly type:
+      voice2md watch --once --config ~/.config/voice2md/config.yaml
+
+    This function rewrites argv so both forms work.
+    """
+    global_parts: list[str] = []
+    rest: list[str] = []
+
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+
+        if arg in _GLOBAL_FLAGS:
+            global_parts.append(arg)
+            i += 1
+            continue
+
+        if arg == "--config":
+            global_parts.append(arg)
+            if i + 1 < len(argv):
+                global_parts.append(argv[i + 1])
+                i += 2
+            else:
+                i += 1
+            continue
+
+        if arg.startswith("--config="):
+            global_parts.append(arg)
+            i += 1
+            continue
+
+        rest.append(arg)
+        i += 1
+
+    return global_parts + rest
+
 
 def _load(cfg_path: str | None, *, verbose: bool) -> AppConfig:
     cfg = load_config(Path(cfg_path).expanduser() if cfg_path else None)
@@ -31,7 +78,7 @@ def cmd_watch(args: argparse.Namespace) -> int:
     watcher = Watcher(cfg)
     try:
         if args.once:
-            watcher.run_once()
+            watcher.run_once(log_when_idle=True, wait_for_stable=True)
             return 0
         watcher.run_forever()
         return 0
@@ -134,5 +181,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    raw = list(sys.argv[1:] if argv is None else argv)
+    args = parser.parse_args(_normalize_argv(raw))
     return int(args.func(args))

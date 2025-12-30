@@ -68,34 +68,75 @@ class Watcher:
 
         log.info("Watcher stopped")
 
-    def run_once(self) -> None:
-        candidates = list_candidates(
-            self._cfg.paths.inbox_audio_dir, self._cfg.processing.allowed_extensions
-        )
-        if self._processed_sources:
-            filtered: list[Path] = []
-            for path in candidates:
-                key = str(path)
-                snap = self._processed_sources.get(key)
-                if snap is None:
+    def run_once(
+        self,
+        *,
+        log_when_idle: bool = False,
+        wait_for_stable: bool = False,
+    ) -> None:
+        inbox = self._cfg.paths.inbox_audio_dir
+        allowed = self._cfg.processing.allowed_extensions
+
+        if log_when_idle:
+            log.info("Scanning inbox: %s", inbox)
+
+        if not inbox.exists():
+            if log_when_idle:
+                log.warning("Inbox directory does not exist: %s", inbox)
+            return
+
+        def scan_candidates() -> list[Path]:
+            candidates = list_candidates(inbox, allowed)
+            if self._processed_sources:
+                filtered: list[Path] = []
+                for path in candidates:
+                    key = str(path)
+                    snap = self._processed_sources.get(key)
+                    if snap is None:
+                        filtered.append(path)
+                        continue
+                    try:
+                        st = path.stat()
+                    except FileNotFoundError:
+                        continue
+                    mtime_ns, size = snap
+                    if mtime_ns is None or size is None:
+                        continue
+                    if int(st.st_mtime_ns) == int(mtime_ns) and int(st.st_size) == int(size):
+                        continue
+                    self._processed_sources.pop(key, None)
                     filtered.append(path)
-                    continue
-                try:
-                    st = path.stat()
-                except FileNotFoundError:
-                    continue
-                mtime_ns, size = snap
-                if mtime_ns is None or size is None:
-                    continue
-                if int(st.st_mtime_ns) == int(mtime_ns) and int(st.st_size) == int(size):
-                    continue
-                self._processed_sources.pop(key, None)
-                filtered.append(path)
-            candidates = filtered
+                candidates = filtered
+            return candidates
+
+        candidates = scan_candidates()
         if not candidates:
+            if log_when_idle:
+                exts = ", ".join(allowed) if allowed else "(none)"
+                log.info("No candidate audio files found (extensions: %s)", exts)
             return
 
         stable = self._stable.observe(candidates)
+        if not stable and wait_for_stable and self._cfg.processing.stable_seconds > 0:
+            if log_when_idle:
+                log.info(
+                    "Waiting up to %ss for stability window (%s candidate file(s))",
+                    self._cfg.processing.stable_seconds,
+                    len(candidates),
+                )
+            deadline = time.monotonic() + float(self._cfg.processing.stable_seconds)
+            while not stable and time.monotonic() < deadline and not self._stop:
+                remaining = deadline - time.monotonic()
+                time.sleep(min(1.0, max(0.0, remaining)))
+                candidates = scan_candidates()
+                if not candidates:
+                    break
+                stable = self._stable.observe(candidates)
+
+        if not stable:
+            if log_when_idle:
+                log.info("No stable files yet (need unchanged for %ss)", self._cfg.processing.stable_seconds)
+            return
         def _mtime_or_zero(p: Path) -> float:
             try:
                 return p.stat().st_mtime
