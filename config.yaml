@@ -1,4 +1,4 @@
-# voice2md config (YAML subset; see README.md)
+# voice2md config (YAML; see README.md)
 paths:
   inbox_audio_dir: ~/VoiceInbox
   obsidian_vault_dir: ~/ObsidianVault

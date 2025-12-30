@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import ast
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,117 +10,27 @@ class ConfigError(RuntimeError):
     pass
 
 
-def _strip_inline_comment(line: str) -> str:
-    in_single = False
-    in_double = False
-    for i, ch in enumerate(line):
-        if ch == "'" and not in_double:
-            in_single = not in_single
-        elif ch == '"' and not in_single:
-            in_double = not in_double
-        elif ch == "#" and not in_single and not in_double:
-            return line[:i]
-    return line
-
-
-_INT_RE = re.compile(r"^[+-]?\d+$")
-_FLOAT_RE = re.compile(r"^[+-]?(?:\d+\.\d*|\d*\.\d+)$")
-
-
-def _parse_scalar(value: str) -> Any:
-    lowered = value.strip().lower()
-    if lowered in {"true", "false"}:
-        return lowered == "true"
-    if lowered in {"null", "none", "~"}:
-        return None
-
-    if _INT_RE.match(value):
-        try:
-            return int(value)
-        except ValueError:
-            pass
-
-    if _FLOAT_RE.match(value):
-        try:
-            return float(value)
-        except ValueError:
-            pass
-
-    if value.startswith(("'", '"', "[", "{")):
-        try:
-            return ast.literal_eval(value)
-        except Exception:
-            return value
-
-    return value
-
-
-def _load_yaml_subset(path: Path) -> dict[str, Any]:
-    """
-    Minimal YAML subset loader:
-      - mappings via indentation (2 spaces recommended)
-      - scalars: strings, ints, floats, bools, null
-      - inline lists/dicts: [..] / {..} via Python literal syntax
-
-    Not supported:
-      - dash lists
-      - multi-line strings
-    """
+def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise ConfigError(f"Config not found: {path}")
 
-    root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(0, root)]
-    expecting_indent: int | None = None
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError as e:
+        raise ConfigError(
+            "PyYAML is required to parse config.yaml. Install it with: pip install pyyaml"
+        ) from e
 
-    for lineno, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        line = _strip_inline_comment(raw_line).rstrip()
-        if not line.strip():
-            continue
+    try:
+        parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise ConfigError(f"Invalid YAML in {path}: {e}") from e
 
-        indent = len(line) - len(line.lstrip(" "))
-        if indent % 2 != 0:
-            raise ConfigError(f"{path}:{lineno}: indentation must use spaces (multiple of 2)")
-
-        content = line.strip()
-        if ":" not in content:
-            raise ConfigError(f"{path}:{lineno}: expected 'key: value' mapping")
-
-        if expecting_indent is not None and indent > expecting_indent:
-            raise ConfigError(
-                f"{path}:{lineno}: unexpected indentation (expected {expecting_indent} spaces)"
-            )
-
-        while stack and indent < stack[-1][0]:
-            stack.pop()
-
-        if not stack:
-            raise ConfigError(f"{path}:{lineno}: invalid indentation structure")
-
-        current_indent, current_map = stack[-1]
-        if indent != current_indent:
-            raise ConfigError(
-                f"{path}:{lineno}: indentation mismatch (expected {current_indent} spaces)"
-            )
-
-        key, raw_value = content.split(":", 1)
-        key = key.strip()
-        raw_value = raw_value.strip()
-
-        if not key:
-            raise ConfigError(f"{path}:{lineno}: empty key")
-
-        if raw_value == "":
-            new_map: dict[str, Any] = {}
-            current_map[key] = new_map
-            stack.append((indent + 2, new_map))
-            expecting_indent = None
-            continue
-
-        current_map[key] = _parse_scalar(raw_value)
-        expecting_indent = None
-
-    return root
+    if parsed is None:
+        return {}
+    if not isinstance(parsed, dict):
+        raise ConfigError(f"Invalid config: expected a top-level mapping in {path}")
+    return parsed
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -288,7 +196,7 @@ def default_config_path() -> Path:
 
 def load_config(path: Path | None = None) -> AppConfig:
     config_path = (path or default_config_path()).expanduser()
-    data = _load_yaml_subset(config_path)
+    data = _load_yaml(config_path)
     merged = _deep_merge(DEFAULT_CONFIG, data)
 
     user_paths = data.get("paths", {}) if isinstance(data.get("paths", {}), dict) else {}

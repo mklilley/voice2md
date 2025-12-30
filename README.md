@@ -27,7 +27,7 @@ Because the notebooks live inside your Obsidian vault (and Syncthing syncs the v
 
 ### 1) Install Python package (local)
 
-This repo has no required Python deps for the MVP runtime (it shells out to `whisper.cpp` by default).
+Python deps are minimal (it shells out to `whisper.cpp` by default).
 
 ```bash
 python3 -m venv .venv
@@ -101,7 +101,7 @@ Edit `~/.config/voice2md/config.yaml`:
 - `codex.command` (default works if you have `codex` CLI installed and logged in)
 
 Notes:
-- This project reads a small YAML subset (mappings + inline lists like `[a, b]`). Avoid `- dash` lists.
+- Config is standard YAML (parsed via `PyYAML`).
 - Relative paths (like `codex.prompt_file: prompts/referee_prompt.md`) resolve relative to the config file directory.
 
 ## Usage
