@@ -100,6 +100,7 @@ Edit `~/.config/voice2md/config.yaml`:
 - `transcription.whisper_cpp.binary` + `transcription.whisper_cpp.model_path`
 - `codex.command` (default works if you have `codex` CLI installed and logged in)
 - `codex.model_reasoning_effort` (optional; forwarded to Codex as `-c model_reasoning_effort="..."`)
+- `codex.web_search_enabled` (optional; enables Codex web search via `codex --search`)
 
 Notes:
 - Config is standard YAML (parsed via `PyYAML`).

@@ -104,6 +104,24 @@ def _inject_reasoning_effort(cmd: list[str], reasoning_effort: str) -> list[str]
     return cmd[:idx] + ["-c", f'model_reasoning_effort="{reasoning_effort}"'] + cmd[idx:]
 
 
+def _inject_web_search(cmd: list[str], enabled: bool) -> list[str]:
+    if not enabled:
+        return cmd
+    if "--search" in cmd:
+        return cmd
+
+    # `--search` is a global flag and must appear before the `exec` subcommand.
+    for subcmd in ("exec", "e"):
+        if subcmd in cmd:
+            idx = cmd.index(subcmd)
+            return cmd[:idx] + ["--search"] + cmd[idx:]
+
+    # Fallback: insert right after the binary.
+    if cmd:
+        return [cmd[0], "--search", *cmd[1:]]
+    return cmd
+
+
 def run_codex(cfg: CodexConfig, *, stdin_prompt: str) -> CodexResult:
     if not cfg.enabled:
         raise CodexError("Codex is disabled in config")
@@ -116,7 +134,8 @@ def run_codex(cfg: CodexConfig, *, stdin_prompt: str) -> CodexResult:
 
     with tempfile.TemporaryDirectory(prefix="voice2md_codex_") as tmp:
         out_path = Path(tmp) / "codex_last_message.txt"
-        cmd = _ensure_output_last_message(base_cmd, out_path)
+        cmd = _inject_web_search(base_cmd, cfg.web_search_enabled)
+        cmd = _ensure_output_last_message(cmd, out_path)
         cmd = _inject_model(cmd, cfg.model)
         cmd = _inject_reasoning_effort(cmd, cfg.model_reasoning_effort)
 

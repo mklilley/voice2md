@@ -54,6 +54,8 @@ codex:
   model: ""
   # Optional: pass through to Codex as `-c model_reasoning_effort="..."` (e.g. low|medium|high|xhigh).
   model_reasoning_effort: ""
+  # Optional: enable the Codex web search tool (`codex --search`).
+  web_search_enabled: false
   timeout_seconds: 600
   prompt_file: prompts/referee_prompt.md
   context_voice_dumps: 3
