@@ -18,7 +18,7 @@ Because the notebooks live inside your Obsidian vault (and Syncthing syncs the v
 ## Repo layout
 
 - `config.yaml` sample config (copy to `~/.config/voice2md/config.yaml`)
-- `prompts/referee_prompt.md` referee prompt template (verbatim)
+- `prompts/` selection of prompt templates to try
 - `src/voice2md/` pipeline implementation + CLI
 - `scripts/` dependency + launchd install scripts
 - `tests/` minimal unit tests (routing, stable detection, idempotency ledger)
@@ -86,7 +86,7 @@ whisper-cli -m ~/Models/whisper.cpp/ggml-medium.bin -f /path/to/audio.wav
 mkdir -p ~/.config/voice2md
 cp config.yaml ~/.config/voice2md/config.yaml
 mkdir -p ~/.config/voice2md/prompts
-cp prompts/referee_prompt.md ~/.config/voice2md/prompts/referee_prompt.md
+cp prompts/collaborator_prompt.md ~/.config/voice2md/prompts/collaborator_prompt.md
 ```
 
 Edit `~/.config/voice2md/config.yaml`:
