@@ -80,6 +80,33 @@ Quick sanity check (optional):
 whisper-cli -m ~/Models/whisper.cpp/ggml-medium.bin -f /path/to/audio.wav
 ```
 
+### 2c) Optional: use `faster-whisper` (Python) instead of `whisper.cpp`
+
+If you’d rather keep transcription inside Python (and stay more cross-platform), you can use `faster-whisper`.
+
+Install:
+
+```bash
+brew install ffmpeg
+pip install faster-whisper
+```
+
+Update your config:
+
+```yaml
+transcription:
+  engine: faster_whisper
+  faster_whisper:
+    model: medium
+    device: auto
+    compute_type: int8
+    language: auto
+    beam_size: 5
+```
+
+Notes:
+- `faster-whisper` will download model weights on first run if `model` is a name like `medium` (internet required once). You can also set `model` to a local model directory path if you want fully offline operation.
+
 ### 3) Configure paths
 
 ```bash
